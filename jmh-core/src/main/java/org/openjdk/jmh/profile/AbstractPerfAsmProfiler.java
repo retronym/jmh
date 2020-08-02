@@ -598,7 +598,7 @@ public abstract class AbstractPerfAsmProfiler implements ExternalProfiler {
          */
         if (savePerfOutput) {
             String target = (savePerfOutputToFile == null) ?
-                savePerfOutputTo + "/" + br.getParams().id() + ".perf" :
+                savePerfOutputTo + "/" + br.getParams().sanitizedId() + ".perf" :
                 savePerfOutputToFile;
             try {
                 FileUtils.copy(perfParsedData.getAbsolutePath(), target);
@@ -613,7 +613,7 @@ public abstract class AbstractPerfAsmProfiler implements ExternalProfiler {
          */
         if (savePerfBin) {
             String target = (savePerfBinFile == null) ?
-                savePerfBinTo + "/" + br.getParams().id() + perfBinaryExtension() :
+                savePerfBinTo + "/" + br.getParams().sanitizedId() + perfBinaryExtension() :
                 savePerfBinFile;
             try {
                 FileUtils.copy(perfBinData.getAbsolutePath(), target);
@@ -628,7 +628,7 @@ public abstract class AbstractPerfAsmProfiler implements ExternalProfiler {
          */
         if (saveLog) {
             String target = (saveLogToFile == null) ?
-                saveLogTo + "/" + br.getParams().id() + ".log" :
+                saveLogTo + "/" + br.getParams().sanitizedId() + ".log" :
                 saveLogToFile;
             try (FileOutputStream asm = new FileOutputStream(target);
                  PrintWriter pwAsm = new PrintWriter(asm)) {

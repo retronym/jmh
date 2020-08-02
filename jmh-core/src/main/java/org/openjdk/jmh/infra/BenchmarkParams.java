@@ -31,6 +31,9 @@ import org.openjdk.jmh.util.Utils;
 import org.openjdk.jmh.util.Version;
 
 import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -446,6 +449,31 @@ abstract class BenchmarkParamsL2 extends BenchmarkParamsL1 implements Serializab
             sb.append(key).append("-").append(params.get(key));
         }
         return sb.toString();
+    }
+
+    /**
+     * @return a textual representation of these parameters suitable for use as a file name.
+     */
+    public String sanitizedId() {
+        StringBuilder sb = new StringBuilder();
+        appendSanitized(sb, benchmark);
+        sb.append("-");
+        sb.append(mode);
+        for (String key : params.keys()) {
+            sb.append("-");
+            appendSanitized(sb, key);
+            sb.append("-");
+            appendSanitized(sb, params.get(key));
+        }
+        return sb.toString();
+    }
+
+    private static void appendSanitized(StringBuilder builder, String s) {
+        try {
+            builder.append(URLEncoder.encode(s, StandardCharsets.UTF_8.name()));
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }
