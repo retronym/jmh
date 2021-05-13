@@ -62,6 +62,7 @@ public final class AsyncProfiler implements ExternalProfiler, InternalProfiler {
     private File trialOutDir;
     private final int traces;
     private final int flat;
+    private final PostProcessor postProcessor;
 
     private boolean isVersion1x;
 
@@ -69,6 +70,7 @@ public final class AsyncProfiler implements ExternalProfiler, InternalProfiler {
     private boolean measurementStarted;
     private int measurementIterationCount;
     private final LinkedHashSet<File> generated = new LinkedHashSet<>();
+    private File jfrFile;
 
     public AsyncProfiler(String initLine) throws ProfilerException {
         OptionParser parser = new OptionParser();
@@ -188,6 +190,11 @@ public final class AsyncProfiler implements ExternalProfiler, InternalProfiler {
                 "Number of top flat profiles to include in the default output.")
                 .withRequiredArg().ofType(Integer.class).defaultsTo(200).describedAs("int");
 
+        OptionSpec<String> optPostProcessor = parser.accepts("postProcessor",
+                "The fully qualified name of a class that implements " + JavaFlightRecorderProfiler.PostProcessor.class + ". " +
+                        "This must have a public, no-argument constructor.")
+                .withRequiredArg().ofType(String.class).describedAs("fqcn");
+
         OptionSet set = ProfilerUtils.parseInitLine(initLine, parser);
 
         try {
@@ -299,6 +306,18 @@ public final class AsyncProfiler implements ExternalProfiler, InternalProfiler {
                 }
             }
 
+            if (set.has(optPostProcessor)) {
+                try {
+                    ClassLoader loader = Thread.currentThread().getContextClassLoader();
+                    Class<?> postProcessorClass = loader.loadClass(optPostProcessor.value(set));
+                    postProcessor = (PostProcessor) postProcessorClass.getDeclaredConstructor().newInstance();
+                } catch (ReflectiveOperationException e) {
+                    throw new ProfilerException(e);
+                }
+            } else {
+                postProcessor = null;
+            }
+
             profilerConfig = builder.profilerOptions();
         } catch (OptionException e) {
             throw new ProfilerException(e.getMessage());
@@ -332,7 +351,8 @@ public final class AsyncProfiler implements ExternalProfiler, InternalProfiler {
 
     private void start() {
         if (output.contains(OutputType.jfr)) {
-            execute("start," + profilerConfig + ",file=" + outputFile("jfr-%s.jfr").getAbsolutePath());
+            jfrFile = outputFile("jfr-%s.jfr");
+            execute("start," + profilerConfig + ",file=" + jfrFile.getAbsolutePath());
         } else {
             execute("start," + profilerConfig);
         }
@@ -344,7 +364,7 @@ public final class AsyncProfiler implements ExternalProfiler, InternalProfiler {
         if (iterationParams.getType() == IterationType.MEASUREMENT) {
             measurementIterationCount += 1;
             if (measurementIterationCount == iterationParams.getCount()) {
-                return Collections.singletonList(stopAndDump());
+                return Collections.singletonList(stopAndDump(benchmarkParams));
             }
         }
 
@@ -361,7 +381,7 @@ public final class AsyncProfiler implements ExternalProfiler, InternalProfiler {
         }
     }
 
-    private TextResult stopAndDump() {
+    private TextResult stopAndDump(BenchmarkParams benchmarkParams) {
         execute("stop");
 
         StringWriter sw = new StringWriter();
@@ -397,6 +417,10 @@ public final class AsyncProfiler implements ExternalProfiler, InternalProfiler {
                     break;
                 case jfr:
                     // JFR is already dumped into file by async-profiler.
+                    if (postProcessor != null) {
+                        generated.addAll(postProcessor.postProcess(benchmarkParams, jfrFile));
+                    }
+
                     break;
             }
         }
@@ -618,5 +642,9 @@ public final class AsyncProfiler implements ExternalProfiler, InternalProfiler {
         private native long getSamples();
 
         private native void filterThread0(Thread thread, boolean enable);
+    }
+
+    public interface PostProcessor {
+        List<File> postProcess(BenchmarkParams benchmarkParams, File jfrFile);
     }
 }

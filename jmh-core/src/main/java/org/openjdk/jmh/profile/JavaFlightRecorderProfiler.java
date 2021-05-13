@@ -58,7 +58,7 @@ public final class JavaFlightRecorderProfiler implements ExternalProfiler, Inter
     private final boolean debugNonSafePoints;
     private final String configName;
     private final Collection<String> flightRecorderOptions = new ArrayList<>();
-    private PostProcessor postProcessor = null;
+    private final PostProcessor postProcessor;
 
     private boolean measurementStarted = false;
     private int measurementIterationCount;
@@ -117,6 +117,8 @@ public final class JavaFlightRecorderProfiler implements ExternalProfiler, Inter
                 } catch (ReflectiveOperationException e) {
                     throw new ProfilerException(e);
                 }
+            } else {
+                postProcessor = null;
             }
         } catch (OptionException e) {
             throw new ProfilerException(e.getMessage());
